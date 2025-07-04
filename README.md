@@ -9,5 +9,6 @@
 
  20250704 09:12測試
 
- 2323
- etrj trt
+##20250704##
+
+visual studio code測試
