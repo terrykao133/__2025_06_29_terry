@@ -16,8 +16,10 @@ CREATE TABLE IF NOT EXISTS student(
     name VARCHAR(20) NOT NULL,
     major VARCHAR(20) UNIQUE
 );
+```
 
 
 ## 刪除資料表
 ```sql
 DROP TABLE IF  EXISTS student;
+```
