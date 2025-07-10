@@ -1,6 +1,6 @@
 ## 作業2：查詢全世界2020年的總確診數
 ```sql
-SELECT SUM(總確診數)
+SELECT SUM(總確診數) AS 全世界2020年總確診數
 FROM world 
 WHERE 日期 BETWEEN '2020-01-01' AND '2020-12-31';
 ```

@@ -1,7 +1,7 @@
 ## 作業1：查詢亞洲總共有多少人死亡
 ```sql
-SELECT MAX(總死亡數) 
-FROM world
+SELECT SUM(總死亡數)  AS 亞洲總死亡數
+FROM world 
 WHERE 洲名='亞洲';
 ```
 
