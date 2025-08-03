@@ -15,7 +15,7 @@ def get_user_name()->str:
     return name
 
 def play_game(name:str)->None:
-    print(f"========猜數字遊戲第{i+1}次=========\n\n")
+    print("========猜數字遊戲第{i+1}次=========\n\n")
     min = 1
     max = 100
     count = 0
