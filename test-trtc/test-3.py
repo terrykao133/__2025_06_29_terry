@@ -8,7 +8,7 @@ def get_disk_info():
     system = platform.system()
     try:
         if system == "Windows":
-            cmd = ['wmic', 'diskdrive', 'get', 'Model']
+            cmd = ['powershell', '-Command', 'Get-PhysicalDisk | Select-Object -ExpandProperty FriendlyName']
             result = subprocess.check_output(cmd, universal_newlines=True)
             lines = [line.strip() for line in result.split("\n") if line.strip() and "Model" not in line]
             return lines
