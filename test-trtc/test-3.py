@@ -2,54 +2,75 @@ import psutil
 import os
 import time
 import subprocess
+import json
 
 def get_disk_mapping():
     """
-    取得 Windows 實體硬碟型號 與 對應分割區
-    回傳格式：
-    {
-        "WDC WD10EZEX-08WN4A0": ["C:/", "D:/"],
-        "SAMSUNG SSD 860 EVO": ["E:/"]
-    }
+    使用 PowerShell 取得硬碟型號與分割區對應
+    回傳 { '型號': ['C:', 'D:'] }
     """
     mapping = {}
     try:
-        # 取得所有硬碟型號與DeviceID
-        cmd = ['wmic', 'diskdrive', 'get', 'Model,DeviceID', '/format:csv']
-        result = subprocess.check_output(cmd, universal_newlines=True)
-        lines = [line for line in result.splitlines() if line and "Model" not in line and "Node" not in line]
-        for line in lines:
-            parts = line.split(',')
-            if len(parts) < 3:
-                continue
-            device_id = parts[2].strip()
-            model = parts[1].strip()
-            # 取得分割區
-            cmd2 = [
-                'wmic', 'diskdrive', 'where', f"DeviceID='{device_id}'",
-                'assoc', '/assocclass:Win32_DiskDriveToDiskPartition'
-            ]
-            result2 = subprocess.check_output(cmd2, universal_newlines=True)
-            partitions = []
-            for l in result2.splitlines():
-                if "DeviceID=" in l:
-                    partition_id = l.split('=')[1].strip().replace('"', '')
-                    # 取得分割區對應的邏輯磁碟
-                    cmd3 = [
-                        'wmic', 'partition', 'where', f"DeviceID='{partition_id}'",
-                        'assoc', '/assocclass:Win32_LogicalDiskToPartition'
-                    ]
-                    result3 = subprocess.check_output(cmd3, universal_newlines=True)
-                    for ll in result3.splitlines():
-                        if "DeviceID=" in ll:
-                            drive_letter = ll.split('=')[1].strip().replace('"', '')
-                            partitions.append(drive_letter)
-            mapping[model] = partitions
+        # PowerShell 指令：抓取硬碟型號與分割區對應
+        ps_cmd = r"""
+        Get-PhysicalDisk | ForEach-Object {
+            $model = $_.FriendlyName
+            $devNum = (Get-Disk | Where-Object {$_.FriendlyName -eq $model}).Number
+            $letters = (Get-Partition -DiskNumber $devNum | Get-Volume | Where-Object {$_.DriveLetter} | ForEach-Object { "$($_.DriveLetter):" })
+            [PSCustomObject]@{ Model = $model; Letters = $letters }
+        } | ConvertTo-Json
+        """
+        result = subprocess.check_output(["powershell", "-Command", ps_cmd], universal_newlines=True)
+        disks = json.loads(result)
+
+        for disk in disks:
+            model = disk["Model"]
+            letters = disk["Letters"]
+            mapping[model] = letters if isinstance(letters, list) else [letters]
     except Exception as e:
-        print(f"取得硬碟資訊失敗: {e}")
+        mapping[f"取得失敗: {e}"] = []
     return mapping
 
+def format_size(bytes_size):
+    return f"{bytes_size / (1024**3):.2f} GB"
+
+def main():
+    disk_mapping = get_disk_mapping()
+    net_old = psutil.net_io_counters()
+
+    while True:
+        os.system("cls")
+
+        print("[硬碟與分割區對應]")
+        for model, drives in disk_mapping.items():
+            print(f"  {model}")
+            for d in drives:
+                try:
+                    usage = psutil.disk_usage(d + "/")
+                    print(f"    {d}")
+                    print(f"      總容量   ：{format_size(usage.total)}")
+                    print(f"      已使用   ：{format_size(usage.used)}")
+                    print(f"      剩餘容量 ：{format_size(usage.free)}")
+                    print(f"      使用率   ：{usage.percent:.1f}%")
+                except Exception:
+                    print(f"    {d}（無法讀取）")
+
+        cpu_percent = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory()
+        print("\n[系統資源]")
+        print(f"  CPU 使用率    ：{cpu_percent:.1f}%")
+        print(f"  記憶體使用率  ：{mem.percent:.1f}% ({format_size(mem.used)} / {format_size(mem.total)})")
+
+        net_new = psutil.net_io_counters()
+        sent_speed = (net_new.bytes_sent - net_old.bytes_sent) / 1024
+        recv_speed = (net_new.bytes_recv - net_old.bytes_recv) / 1024
+        print("\n[網路即時速度]")
+        print(f"  上傳：{sent_speed:.2f} KB/s")
+        print(f"  下載：{recv_speed:.2f} KB/s")
+        net_old = net_new
+
+        print("\n(按 Ctrl+C 結束)")
+        time.sleep(1)
+
 if __name__ == "__main__":
-    disk_info = get_disk_mapping()
-    for model, partitions in disk_info.items():
-        print(f"硬碟型號: {model}, 分割區: {', '.join(partitions)}")
+    main()
