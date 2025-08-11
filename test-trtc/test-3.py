@@ -1,14 +1,4 @@
-import psutil
-import os
-import time
-import subprocess
-import json
-
 def get_disk_mapping():
-    """
-    使用 PowerShell 取得硬碟型號與分割區對應
-    回傳 { '型號': ['C:', 'D:'] }
-    """
     mapping = {}
     try:
         ps_cmd = r"""
@@ -19,7 +9,10 @@ def get_disk_mapping():
             [PSCustomObject]@{ Model = $model; Letters = $letters }
         } | ConvertTo-Json
         """
-        result = subprocess.check_output(["powershell", "-Command", ps_cmd], universal_newlines=True)
+        result = subprocess.check_output(
+            [r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe", "-Command", ps_cmd],
+            universal_newlines=True
+        )
         disks = json.loads(result)
         for disk in disks:
             model = disk["Model"]
@@ -28,6 +21,3 @@ def get_disk_mapping():
     except Exception as e:
         mapping[f"取得失敗: {e}"] = []
     return mapping
-
-def format_size(bytes_size):
-    return f"{bytes_size / (1024**3):.2f} GB"
