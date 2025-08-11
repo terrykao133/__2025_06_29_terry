@@ -1,8 +1,8 @@
 import psutil
-import time
 import platform
 import subprocess
-import curses
+import os
+import time
 
 def get_disk_info():
     system = platform.system()
@@ -25,49 +25,46 @@ def get_disk_info():
     except Exception as e:
         return [f"取得失敗: {e}"]
 
-def main(stdscr):
-    curses.curs_set(0)  # 隱藏游標
-    stdscr.nodelay(True)  # 不阻塞輸入
+def main():
     disk_info = get_disk_info()
-    disk_usage = psutil.disk_usage('/')
+    prev_net = psutil.net_io_counters()
 
     while True:
-        stdscr.clear()
+        # 清除螢幕
+        os.system('cls' if os.name == 'nt' else 'clear')
 
         # 硬碟資訊
-        stdscr.addstr(0, 0, "硬碟廠牌/型號：")
-        for idx, model in enumerate(disk_info):
-            stdscr.addstr(1 + idx, 2, model)
+        print("=== 硬碟廠牌/型號 ===")
+        for model in disk_info:
+            print(f"  {model}")
 
-        # 硬碟容量
-        disk_usage = psutil.disk_usage('/')
-        stdscr.addstr(4, 0, f"硬碟總容量：{disk_usage.total / (1024**3):.2f} GB")
-        stdscr.addstr(5, 0, f"已使用容量：{disk_usage.used / (1024**3):.2f} GB")
-        stdscr.addstr(6, 0, f"剩餘容量　：{disk_usage.free / (1024**3):.2f} GB")
-        stdscr.addstr(7, 0, f"使用率　　：{disk_usage.percent:.1f}%")
+        # 硬碟使用狀況
+        usage = psutil.disk_usage('/')
+        print("\n=== 硬碟使用狀況 ===")
+        print(f"  總容量　：{usage.total / (1024**3):.2f} GB")
+        print(f"  已使用　：{usage.used / (1024**3):.2f} GB")
+        print(f"  剩餘容量：{usage.free / (1024**3):.2f} GB")
+        print(f"  使用率　：{usage.percent:.1f}%")
 
-        # CPU / 記憶體
+        # CPU 與記憶體
         cpu_percent = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
-        stdscr.addstr(9, 0, f"CPU 使用率：{cpu_percent:.1f}%")
-        stdscr.addstr(10, 0, f"記憶體使用率：{mem.percent:.1f}% ({mem.used / (1024**3):.2f} / {mem.total / (1024**3):.2f} GB)")
+        print("\n=== 系統資源 ===")
+        print(f"  CPU 使用率：{cpu_percent:.1f}%")
+        print(f"  記憶體使用率：{mem.percent:.1f}% ({mem.used / (1024**3):.2f} / {mem.total / (1024**3):.2f} GB)")
 
-        # 網路
+        # 網路流量（計算本秒收發）
         net = psutil.net_io_counters()
-        stdscr.addstr(12, 0, f"網路傳送：{net.bytes_sent / (1024**2):.2f} MB")
-        stdscr.addstr(13, 0, f"網路接收：{net.bytes_recv / (1024**2):.2f} MB")
+        sent_speed = (net.bytes_sent - prev_net.bytes_sent) / 1024  # KB/s
+        recv_speed = (net.bytes_recv - prev_net.bytes_recv) / 1024
+        prev_net = net
+        print("\n=== 網路即時速率 ===")
+        print(f"  傳送：{sent_speed:.2f} KB/s")
+        print(f"  接收：{recv_speed:.2f} KB/s")
 
-        stdscr.addstr(15, 0, "按 Q 退出")
-        stdscr.refresh()
-
-        try:
-            key = stdscr.getch()
-            if key in (ord('q'), ord('Q')):
-                break
-        except:
-            pass
+        print("\n(按 Ctrl+C 結束)")
 
         time.sleep(1)
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    main()
