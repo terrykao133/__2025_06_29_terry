@@ -40,4 +40,34 @@ def main(stdscr):
             stdscr.addstr(1 + idx, 2, model)
 
         # 硬碟容量
-        disk_usage = psutil.disk_
+        disk_usage = psutil.disk_usage('/')
+        stdscr.addstr(4, 0, f"硬碟總容量：{disk_usage.total / (1024**3):.2f} GB")
+        stdscr.addstr(5, 0, f"已使用容量：{disk_usage.used / (1024**3):.2f} GB")
+        stdscr.addstr(6, 0, f"剩餘容量　：{disk_usage.free / (1024**3):.2f} GB")
+        stdscr.addstr(7, 0, f"使用率　　：{disk_usage.percent:.1f}%")
+
+        # CPU / 記憶體
+        cpu_percent = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory()
+        stdscr.addstr(9, 0, f"CPU 使用率：{cpu_percent:.1f}%")
+        stdscr.addstr(10, 0, f"記憶體使用率：{mem.percent:.1f}% ({mem.used / (1024**3):.2f} / {mem.total / (1024**3):.2f} GB)")
+
+        # 網路
+        net = psutil.net_io_counters()
+        stdscr.addstr(12, 0, f"網路傳送：{net.bytes_sent / (1024**2):.2f} MB")
+        stdscr.addstr(13, 0, f"網路接收：{net.bytes_recv / (1024**2):.2f} MB")
+
+        stdscr.addstr(15, 0, "按 Q 退出")
+        stdscr.refresh()
+
+        try:
+            key = stdscr.getch()
+            if key in (ord('q'), ord('Q')):
+                break
+        except:
+            pass
+
+        time.sleep(1)
+
+if __name__ == "__main__":
+    curses.wrapper(main)
