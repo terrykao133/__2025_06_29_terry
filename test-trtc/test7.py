@@ -1,35 +1,6 @@
 import psutil
-import os
-import time
-import subprocess
-import json
 import sys
-
-def get_disk_mapping():
-    """
-    使用 PowerShell 取得硬碟型號與分割區對應
-    回傳 { '型號': ['C:', 'D:'] }
-    """
-    mapping = {}
-    try:
-        ps_cmd = r"""
-        Get-PhysicalDisk | ForEach-Object {
-            $disk = Get-Disk -Number $_.DeviceId
-            $letters = (Get-Partition -DiskNumber $disk.Number | Get-Volume | Where-Object {$_.DriveLetter} | ForEach-Object { "$($_.DriveLetter):" })
-            [PSCustomObject]@{ Model = $_.FriendlyName; Letters = $letters }
-        } | ConvertTo-Json
-        """
-        result = subprocess.check_output(["powershell.exe", "-Command", ps_cmd], universal_newlines=True)
-        disks = json.loads(result)
-        if isinstance(disks, dict):  # 單顆磁碟時 json 是 dict
-            disks = [disks]
-        for disk in disks:
-            model = disk["Model"]
-            letters = disk["Letters"]
-            mapping[model] = letters if isinstance(letters, list) else [letters]
-    except Exception as e:
-        mapping[f"取得失敗: {e}"] = []
-    return mapping
+import time
 
 def format_size(bytes_size):
     """將容量自動轉換單位"""
@@ -47,7 +18,6 @@ def print_section(title, lines):
     print()
 
 def main():
-    disk_mapping = get_disk_mapping()
     net_old = psutil.net_io_counters()
     disk_io_old = psutil.disk_io_counters()
 
@@ -56,16 +26,16 @@ def main():
         sys.stdout.write("\033[H\033[J")
         sys.stdout.flush()
 
-        # 硬碟資訊
+        # 硬碟資訊（只靠 psutil）
         disk_lines = []
-        for model, drives in disk_mapping.items():
-            disk_lines.append(f"磁碟: {model}")
-            for d in drives:
-                try:
-                    usage = psutil.disk_usage(d + "\\")
-                    disk_lines.append(f"  {d} | {usage.percent:.1f}% | {format_size(usage.used)} / {format_size(usage.total)}")
-                except Exception:
-                    disk_lines.append(f"  {d}（無法讀取）")
+        for part in psutil.disk_partitions(all=False):
+            try:
+                usage = psutil.disk_usage(part.mountpoint)
+                disk_lines.append(
+                    f"{part.device} ({part.mountpoint}) | {usage.percent:.1f}% | {format_size(usage.used)} / {format_size(usage.total)}"
+                )
+            except PermissionError:
+                disk_lines.append(f"{part.device} ({part.mountpoint}) | 無法讀取")
         print_section("硬碟與分割區狀態", disk_lines)
 
         # 系統資源
