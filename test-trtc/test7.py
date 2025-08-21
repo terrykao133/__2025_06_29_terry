@@ -39,17 +39,12 @@ def format_size(bytes_size):
         bytes_size /= 1024
     return f"{bytes_size:.2f} PB"
 
-def draw_box(title, lines):
-    """繪製文字框"""
-    width = max(len(title), *(len(line) for line in lines)) + 4
-    box = []
-    box.append("┌" + "─" * (width - 2) + "┐")
-    box.append(f"│ {title.ljust(width-3)}│")
-    box.append("├" + "─" * (width - 2) + "┤")
+def print_section(title, lines):
+    """簡單輸出區塊（沒有框線）"""
+    print(f"【{title}】")
     for line in lines:
-        box.append(f"│ {line.ljust(width-3)}│")
-    box.append("└" + "─" * (width - 2) + "┘")
-    return "\n".join(box)
+        print(line)
+    print()
 
 def main():
     disk_mapping = get_disk_mapping()
@@ -64,14 +59,14 @@ def main():
         # 硬碟資訊
         disk_lines = []
         for model, drives in disk_mapping.items():
-            disk_lines.append(model)
+            disk_lines.append(f"磁碟: {model}")
             for d in drives:
                 try:
                     usage = psutil.disk_usage(d + "\\")
                     disk_lines.append(f"  {d} | {usage.percent:.1f}% | {format_size(usage.used)} / {format_size(usage.total)}")
                 except Exception:
                     disk_lines.append(f"  {d}（無法讀取）")
-        print(draw_box("硬碟與分割區狀態", disk_lines))
+        print_section("硬碟與分割區狀態", disk_lines)
 
         # 系統資源
         cpu_percent = psutil.cpu_percent(interval=None)
@@ -80,7 +75,7 @@ def main():
             f"CPU 使用率   : {cpu_percent:.1f}%",
             f"記憶體使用率 : {mem.percent:.1f}% ({format_size(mem.used)} / {format_size(mem.total)})"
         ]
-        print(draw_box("系統資源", sys_lines))
+        print_section("系統資源", sys_lines)
 
         # 網路速度
         net_new = psutil.net_io_counters()
@@ -90,7 +85,7 @@ def main():
             f"上傳: {sent_speed:.2f} KB/s",
             f"下載: {recv_speed:.2f} KB/s"
         ]
-        print(draw_box("網路即時速度", net_lines))
+        print_section("網路即時速度", net_lines)
         net_old = net_new
 
         # 磁碟 I/O 速度
@@ -101,10 +96,10 @@ def main():
             f"讀取: {read_speed:.2f} MB/s",
             f"寫入: {write_speed:.2f} MB/s"
         ]
-        print(draw_box("磁碟 I/O 即時速度", io_lines))
+        print_section("磁碟 I/O 即時速度", io_lines)
         disk_io_old = disk_io_new
 
-        print("\n(按 Ctrl+C 結束)")
+        print("(按 Ctrl+C 結束)")
         time.sleep(1)
 
 if __name__ == "__main__":
