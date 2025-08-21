@@ -1,6 +1,7 @@
 import psutil
 import sys
 import time
+import wmi
 
 def format_size(bytes_size):
     """將容量自動轉換單位"""
@@ -17,6 +18,34 @@ def print_section(title, lines):
         print(line)
     print()
 
+def get_physical_disks():
+    """用 WMI 抓硬碟型號、容量、使用狀態"""
+    c = wmi.WMI()
+    disks = []
+    for disk in c.Win32_DiskDrive():
+        model = disk.Model.strip()
+        size = int(disk.Size) if disk.Size else 0
+
+        # 嘗試計算使用與剩餘容量（透過分割區 & 磁碟機號）
+        used = 0
+        free = 0
+        for partition in disk.associators("Win32_DiskDriveToDiskPartition"):
+            for logical in partition.associators("Win32_LogicalDiskToPartition"):
+                try:
+                    usage = psutil.disk_usage(logical.DeviceID + "\\")
+                    used += usage.used
+                    free += usage.free
+                except Exception:
+                    pass
+
+        disks.append({
+            "model": model,
+            "size": size,
+            "used": used,
+            "free": free
+        })
+    return disks
+
 def main():
     net_old = psutil.net_io_counters()
     disk_io_old = psutil.disk_io_counters()
@@ -26,17 +55,14 @@ def main():
         sys.stdout.write("\033[H\033[J")
         sys.stdout.flush()
 
-        # 硬碟資訊（只靠 psutil）
+        # 硬碟資訊（含型號與容量）
         disk_lines = []
-        for part in psutil.disk_partitions(all=False):
-            try:
-                usage = psutil.disk_usage(part.mountpoint)
-                disk_lines.append(
-                    f"{part.device} ({part.mountpoint}) | {usage.percent:.1f}% | {format_size(usage.used)} / {format_size(usage.total)}"
-                )
-            except PermissionError:
-                disk_lines.append(f"{part.device} ({part.mountpoint}) | 無法讀取")
-        print_section("硬碟與分割區狀態", disk_lines)
+        for d in get_physical_disks():
+            disk_lines.append(f"型號: {d['model']}")
+            disk_lines.append(f"  總容量 : {format_size(d['size'])}")
+            disk_lines.append(f"  已使用 : {format_size(d['used'])}")
+            disk_lines.append(f"  剩餘容量 : {format_size(d['free'])}")
+        print_section("硬碟狀態", disk_lines)
 
         # 系統資源
         cpu_percent = psutil.cpu_percent(interval=None)
